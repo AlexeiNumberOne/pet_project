@@ -1,2 +1,2 @@
-# pet_project_reddit
+# pet_project
 ETL pipeline
