@@ -1,6 +1,7 @@
 import logging
 import json
 import io
+import time
 
 from massive import RESTClient
 from airflow import DAG
@@ -14,58 +15,59 @@ from minio import Minio
 
 default_args = {
     'owner':'airflow',
-    'start_date': datetime(2025, 1, 1),
+    'start_date': datetime(2026, 1, 5), # Максимум 5 будних дней при первом запуске!
     'retries': 3,
-    "catchup": False,
+    "catchup": True,
     "retry_delay": timedelta(minutes=5),
 }
 
 def get_dates(**context):
 
-    start_date = context["data_interval_start"] - timedelta(days=1)
+    start_date = context["data_interval_start"].strftime("%Y-%m-%d")
+    end_date = context["data_interval_end"].strftime("%Y-%m-%d")
 
-    logging.info(f"Сбор данных за: {start_date}")
+    logging.info(f"Сбор данных за: {start_date}/{end_date}")
 
-    return start_date
+    return start_date, end_date
 
 def extract_and_load_from_api_to_minio(**context):
 
     API_KEY = Variable.get("API_KEY")
 
-    start_date = get_dates(**context)
+    start_date, end_date = get_dates(**context)
 
     api_client = RESTClient(api_key = API_KEY)
 
-    tickers = ['AAPL'
-            #    'MSFT',
-            #    'GOOGL',
-            #    'GOOG',
-            #    'AMZN',
-            #    'META',
-            #    'TSLA',
-            #    'NVDA',
-            #    'INTC',
-            #    'AMD',
-            #    'ADBE',
-            #    'JPM',
-            #    'BAC',
-            #    'GS',
-            #    'MS',
-            #    'V',
-            #    'MA',
-            #    'PG',
-            #    'KO',
-            #    'PEP',
-            #    'WMT',
-            #    'MCD',
-            #    'BABA',
-            #    'TSM',
-            #    'ASML',
-            #    'JNJ',
-            #    'PFE',
-            #    'MRK',
-            #    'UNH',
-            #    'ABBV'
+    tickers = ['AAPL',
+               'MSFT',
+               'GOOGL',
+               'GOOG',
+               'AMZN',
+               'META',
+               'TSLA',
+               'NVDA',
+               'INTC',
+               'AMD',
+               'ADBE',
+               'JPM',
+               'BAC',
+               'GS',
+               'MS',
+               'V',
+               'MA',
+               'PG',
+               'KO',
+               'PEP',
+               'WMT',
+               'MCD',
+               'BABA',
+               'TSM',
+               'ASML',
+               'JNJ',
+               'PFE',
+               'MRK',
+               'UNH',
+               'ABBV'
                ]
     
     logging.info(f'Подключение к S3')
@@ -73,21 +75,23 @@ def extract_and_load_from_api_to_minio(**context):
         "minio:9000",
         access_key="minioadmin",
         secret_key="minioadmin",
-        secure=False  # Важно! HTTP, не HTTPS для локального
+        secure=False  
     )
     bucket_name = 'prod'
     if not s3_client.bucket_exists(bucket_name):
         s3_client.make_bucket(bucket_name)
     logging.info(f'Подключение к S3 успешно пройдено, бакет найден')
     
-    for ticker in tickers:
-
+    for index, ticker in enumerate(tickers):
+        if index % 5 == 0:
+            logging.info("Пауза 65 секунд, из-за ограничений API...")
+            time.sleep(65)
         aggs = api_client.get_aggs(
             ticker=ticker,
             multiplier=1,
             timespan="minute",
-            from_=start_date.strftime("%Y-%m-%d"),
-            to=start_date.strftime("%Y-%m-%d"),
+            from_=start_date,
+            to=end_date,
             limit = 5000
         )
 
@@ -114,7 +118,7 @@ def extract_and_load_from_api_to_minio(**context):
 
         s3_client.put_object(
             bucket_name,
-            f"{ticker}/{start_date}/{ticker}_{start_date}.json",
+            f"{ticker}/{start_date}.json",
             data=io.BytesIO(json_bytes),
             length=len(json_bytes),
             content_type='application/json; charset=utf-8'
@@ -122,7 +126,7 @@ def extract_and_load_from_api_to_minio(**context):
 
 with DAG(
     dag_id='extract_from_API',
-    schedule_interval=None,
+    schedule_interval="0 0 * * 1-5",
     default_args=default_args,
     tags=["s3", "raw"],
     concurrency=1,
@@ -134,8 +138,8 @@ with DAG(
         task_id="start",
     )
 
-    get_and_transfer_api_data_to_s3 = PythonOperator(
-        task_id="get_and_transfer_api_data_to_s3",
+    extract_and_load_from_api_to_minio = PythonOperator(
+        task_id="extract_and_load_from_api_to_minio",
         python_callable=extract_and_load_from_api_to_minio,
     )
 
@@ -143,6 +147,6 @@ with DAG(
         task_id="end",
     )
 
-    start >> get_and_transfer_api_data_to_s3 >> end
+    start >> extract_and_load_from_api_to_minio >> end
 
 
