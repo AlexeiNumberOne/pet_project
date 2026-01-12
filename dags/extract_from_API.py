@@ -11,8 +11,6 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from minio import Minio
 
-
-
 default_args = {
     'owner':'airflow',
     'start_date': datetime(2026, 1, 5), # Максимум 5 будних дней при первом запуске!
@@ -25,50 +23,12 @@ def get_dates(**context):
 
     start_date = context["data_interval_start"].strftime("%Y-%m-%d")
     end_date = context["data_interval_end"].strftime("%Y-%m-%d")
-
-    logging.info(f"Сбор данных за: {start_date}/{end_date}")
-
     return start_date, end_date
 
 def extract_and_load_from_api_to_minio(**context):
 
-    API_KEY = Variable.get("API_KEY")
-
     start_date, end_date = get_dates(**context)
-
-    api_client = RESTClient(api_key = API_KEY)
-
-    tickers = ['AAPL',
-               'MSFT',
-               'GOOGL',
-               'GOOG',
-               'AMZN',
-               'META',
-               'TSLA',
-               'NVDA',
-               'INTC',
-               'AMD',
-               'ADBE',
-               'JPM',
-               'BAC',
-               'GS',
-               'MS',
-               'V',
-               'MA',
-               'PG',
-               'KO',
-               'PEP',
-               'WMT',
-               'MCD',
-               'BABA',
-               'TSM',
-               'ASML',
-               'JNJ',
-               'PFE',
-               'MRK',
-               'UNH',
-               'ABBV'
-               ]
+    logging.info(f"Сбор данных с API за: {start_date}/{end_date}")
     
     logging.info(f'Подключение к S3')
     s3_client = Minio(
@@ -81,7 +41,42 @@ def extract_and_load_from_api_to_minio(**context):
     if not s3_client.bucket_exists(bucket_name):
         s3_client.make_bucket(bucket_name)
     logging.info(f'Подключение к S3 успешно пройдено, бакет найден')
-    
+
+    API_KEY = Variable.get("API_KEY")
+    api_client = RESTClient(api_key = API_KEY)
+
+    tickers = ['AAPL',
+            'MSFT',
+            'GOOGL',
+            'GOOG',
+            'AMZN',
+            'META',
+            'TSLA',
+            'NVDA',
+            'INTC',
+            'AMD',
+            'ADBE',
+            'JPM',
+            'BAC',
+            'GS',
+            'MS',
+            'V',
+            'MA',
+            'PG',
+            'KO',
+            'PEP',
+            'WMT',
+            'MCD',
+            'BABA',
+            'TSM',
+            'ASML',
+            'JNJ',
+            'PFE',
+            'MRK',
+            'UNH',
+            'ABBV'
+            ]
+   
     for index, ticker in enumerate(tickers):
         if index % 5 == 0:
             logging.info("Пауза 65 секунд, из-за ограничений API...")
