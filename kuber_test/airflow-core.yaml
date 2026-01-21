@@ -1,14 +1,4 @@
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: airflow-airflow-config
-data:
-  airflow.cfg: |
-    [core]
-    executor = LocalExecutor
-    load_examples = True
----
-apiVersion: v1
 kind: Service
 metadata:
   name: airflow-webserver
@@ -42,6 +32,10 @@ spec:
         - name: scheduler
           image: apache/airflow:2.11.0
           env:
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: 'false'
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: "LocalExecutor"
             - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
               valueFrom:
                 secretKeyRef:
@@ -57,6 +51,10 @@ spec:
                 secretKeyRef:
                   name: airflow-secrets
                   key: webserver_secret_key
+            - name: AIRFLOW__CORE__DEFAULT_TIMEZONE
+              value: "utc"
+            - name: AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT
+              value: "False"
           command: ["airflow", "scheduler"]
 ---
 apiVersion: apps/v1
@@ -79,6 +77,10 @@ spec:
         - name: webserver
           image: apache/airflow:2.11.0
           env:
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: 'false'
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: "LocalExecutor"
             - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
               valueFrom:
                 secretKeyRef:
@@ -94,6 +96,10 @@ spec:
                 secretKeyRef:
                   name: airflow-secrets
                   key: webserver_secret_key
+            - name: AIRFLOW__CORE__DEFAULT_TIMEZONE
+              value: "utc"
+            - name: AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT
+              value: "False"
           ports:
             - containerPort: 8080
           command: ["airflow", "webserver"]

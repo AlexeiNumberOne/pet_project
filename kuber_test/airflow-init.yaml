@@ -10,6 +10,8 @@ spec:
       - name: init
         image: apache/airflow:2.11.0
         env:
+        - name: AIRFLOW__CORE__LOAD_EXAMPLES
+          value: 'false'
         - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
           valueFrom:
             secretKeyRef:
