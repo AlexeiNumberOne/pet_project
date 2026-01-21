@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-db-init
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: apache/airflow:2.11.0
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          valueFrom:
+            secretKeyRef:
+              name: airflow-metadata
+              key: connection
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet_key
+        - name: AIRFLOW__WEBSERVER__SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: webserver_secret_key
+        command: ["airflow", "db", "upgrade"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-create-admin
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: create-admin
+        image: apache/airflow:2.11.0
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          valueFrom:
+            secretKeyRef:
+              name: airflow-metadata
+              key: connection
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet_key
+        - name: AIRFLOW__WEBSERVER__SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: webserver_secret_key
+        command: 
+        - airflow
+        - users
+        - create
+        - -r
+        - Admin
+        - -u
+        - admin
+        - -e
+        - admin@example.com
+        - -f
+        - admin
+        - -l
+        - user
+        - -p
+        - admin
