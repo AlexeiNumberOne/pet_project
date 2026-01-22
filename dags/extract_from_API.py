@@ -13,7 +13,7 @@ from minio import Minio
 
 default_args = {
     'owner':'airflow',
-    'start_date': datetime(2026, 1, 5), # Максимум 5 будних дней при первом запуске!
+    'start_date': datetime(2026, 1, 13), # Максимум 5 будних дней при первом запуске!
     'retries': 3,
     "catchup": True,
     "retry_delay": timedelta(minutes=5),
@@ -32,7 +32,7 @@ def extract_and_load_from_api_to_minio(**context):
     
     logging.info(f'Подключение к S3')
     s3_client = Minio(
-        "minio:9000",
+        "minio.minio.svc.cluster.local:9000",
         access_key="minioadmin",
         secret_key="minioadmin",
         secure=False  
@@ -123,7 +123,7 @@ with DAG(
     dag_id='extract_from_API',
     schedule_interval="0 0 * * 1-5",
     default_args=default_args,
-    tags=["s3", "raw"],
+    tags=["s3", "raw","kuber"],
     concurrency=1,
     max_active_tasks=1,
     max_active_runs=1,
