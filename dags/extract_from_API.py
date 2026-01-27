@@ -123,7 +123,7 @@ with DAG(
     dag_id='extract_from_API',
     schedule_interval="0 0 * * 1-5",
     default_args=default_args,
-    tags=["s3", "raw","kuber"],
+    tags=["kuber"],
     concurrency=1,
     max_active_tasks=1,
     max_active_runs=1,
