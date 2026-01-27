@@ -13,7 +13,7 @@ from minio import Minio
 
 default_args = {
     'owner':'airflow',
-    'start_date': datetime(2026, 1, 13), # Максимум 5 будних дней при первом запуске!
+    'start_date': datetime(2026, 1, 23), # Максимум 5 будних дней при первом запуске!
     'retries': 3,
     "catchup": True,
     "retry_delay": timedelta(minutes=5),
