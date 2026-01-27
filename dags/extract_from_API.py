@@ -27,6 +27,11 @@ def get_dates(**context):
 
 def extract_and_load_from_api_to_minio(**context):
 
+    logging.info(f"DAG Run ID: {context['run_id']}")
+    logging.info(f"Execution date: {context['execution_date']}")
+    logging.info(f"Data interval start: {context['data_interval_start']}")
+    logging.info(f"Data interval end: {context['data_interval_end']}")
+
     start_date, end_date = get_dates(**context)
     logging.info(f"Сбор данных с API за: {start_date}/{end_date}")
     
@@ -126,7 +131,7 @@ with DAG(
     tags=["kuber"],
     concurrency=1,
     max_active_tasks=1,
-    #max_active_runs=1,
+    max_active_runs=1,
 ) as dag:
 
     start = EmptyOperator(
