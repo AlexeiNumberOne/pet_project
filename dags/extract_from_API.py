@@ -126,7 +126,7 @@ with DAG(
     tags=["kuber"],
     concurrency=1,
     max_active_tasks=1,
-    max_active_runs=1,
+    #max_active_runs=1,
 ) as dag:
 
     start = EmptyOperator(
