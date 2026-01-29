@@ -13,27 +13,20 @@ from minio import Minio
 
 default_args = {
     'owner':'airflow',
-    'start_date': datetime(2026, 1, 21), # Максимум 5 будних дней при первом запуске!
+    'start_date': datetime(2026, 1, 21), 
     'retries': 3,
     "catchup": True,
     "retry_delay": timedelta(minutes=5),
 }
 
-def get_dates(**context):
-
+def get_date(**context):
     start_date = context["data_interval_start"].strftime("%Y-%m-%d")
-    end_date = context["data_interval_end"].strftime("%Y-%m-%d")
-    return start_date, end_date
+    return start_date
 
 def extract_and_load_from_api_to_minio(**context):
 
-    logging.info(f"DAG Run ID: {context['run_id']}")
-    logging.info(f"Execution date: {context['execution_date']}")
-    logging.info(f"Data interval start: {context['data_interval_start']}")
-    logging.info(f"Data interval end: {context['data_interval_end']}")
-
-    start_date, end_date = get_dates(**context)
-    logging.info(f"Сбор данных с API за: {start_date}/{end_date}")
+    start_date = get_date(**context)
+    logging.info(f"Сбор данных с API за: {start_date}")
     
     logging.info(f'Подключение к S3')
     s3_client = Minio(
@@ -91,7 +84,7 @@ def extract_and_load_from_api_to_minio(**context):
             multiplier=1,
             timespan="minute",
             from_=start_date,
-            to=end_date,
+            to=start_date,
             limit = 5000
         )
 
