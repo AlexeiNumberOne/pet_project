@@ -1,0 +1,66 @@
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  # Имя будет динамически подставляться из DAG
+  name: "{{ dag.dag_id }}-{{ task.task_id }}-{{ ts_nodash }}"
+  namespace: "spark-jobs"
+spec:
+# Настройки приложения
+  type: Python
+  pythonVersion: "3"
+  mode: cluster  # Обязательно для работы с K8s
+  image: spark-custom:latest
+  imagePullPolicy: IfNotPresent
+
+  mainApplicationFile: "local:///opt/spark-jobs/test_spark_job.py" #путь до spark-job
+
+  arguments: []
+
+  sparkConf:
+    "spark.kubernetes.namespace": "spark-jobs"
+
+  sparkVersion: "4.0.1"
+
+  # Конфигурация драйвера
+  driver:
+    serviceAccount: spark-sa # ServiceAccount
+    cores: 1
+    memory: "2g"
+    labels:
+      app: spark-app
+      component: driver
+    # Переменные окружения для драйвера
+    env:
+      - name: PYSPARK_PYTHON
+        value: python3
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: minio-credentials
+            key: accesskey
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: minio-credentials
+            key: secretkey
+
+  # Конфигурация экзекьюторов
+
+  executor:
+    cores: 2
+    instances: 2  # Количество экзекьюторов
+    memory: "4g"
+    labels:
+      app: spark-app
+      component: executor
+    # Переменные окружения для экзекьюторов
+    env:
+      - name: PYSPARK_PYTHON
+        value: python3
+
+  # Политика перезапуска
+  restartPolicy:
+    type: Never  # Не перезапускать при падении
+
+  # Автоматическое удаление после выполнения
+  deletionPolicy: Delete
