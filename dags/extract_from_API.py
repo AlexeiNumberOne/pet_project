@@ -30,7 +30,7 @@ def extract_and_load_from_api_to_minio(**context):
     
     logging.info(f'Подключение к S3')
     s3_client = Minio(
-        "minio.minio.svc.cluster.local:9000",
+        "minio-minio.minio.svc.cluster.local:9000",
         access_key="minioadmin",
         secret_key="minioadmin",
         secure=False  
@@ -119,7 +119,7 @@ def extract_and_load_from_api_to_minio(**context):
 
 with DAG(
     dag_id='extract_from_API',
-    schedule_interval="0 0 * * 1-5",
+    schedule_interval="0 5 * * 1-5",     # новый день в 05:00 по utc
     default_args=default_args,
     tags=["kuber"],
     concurrency=1,
