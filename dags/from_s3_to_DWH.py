@@ -30,7 +30,7 @@ def get_and_load_from_s3_to_dwh(**context):
 
     logging.info(f'Подключение к S3')
     s3_client = Minio(
-        "minio:9000",
+        "minio-minio.minio.svc.cluster.local:9000",
         access_key="minioadmin",
         secret_key="minioadmin",
         secure=False  
