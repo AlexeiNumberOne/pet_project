@@ -82,7 +82,7 @@ def extract_and_load_from_api_to_minio(**context):
         aggs = api_client.get_aggs(
             ticker=ticker,
             multiplier=1,
-            timespan="second",
+            timespan="minute",
             from_=start_date,
             to=start_date,
             limit = 5000
