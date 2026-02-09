@@ -1,0 +1,8 @@
+FROM apache/airflow:2.11.0-python3.11 
+
+RUN pip install --no-cache-dir \
+    massive==2.0.2 \
+    minio==7.2.20 \
+    #apache-airflow-providers-cncf-kubernetes==10.12.2 \
+    #apache-airflow-providers-common-sql==1.30.4
+    SQLAlchemy==1.4.50

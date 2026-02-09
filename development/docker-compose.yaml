@@ -1,0 +1,208 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - airflow-internal
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  redis:
+    image: redis:7.2-alpine
+    restart: always
+    networks:
+      - airflow-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow-init:
+    image: airflow-custom:2.11.0
+    command: >  
+      bash -c "              
+      airflow db init && 
+      airflow users create \
+      --username ${AIRFLOW_ADMIN_USER:-admin} \
+      --password ${AIRFLOW_ADMIN_PASSWORD:-admin} \
+      --firstname Admin \
+      --lastname User \
+      --role Admin \
+      --email ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
+      "
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__FERNET_KEY: 'cTFE9LhK6yX5Qnvidyao7qgHDHhow33LpJ0JaYy5J5Y='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-change-me-12345'
+    volumes:
+      - ./config:/opt/airflow/config 
+    networks:
+      - airflow-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  airflow-webserver:  # ИСПРАВЛЕНО
+    image: airflow-custom:2.11.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__FERNET_KEY: 'cTFE9LhK6yX5Qnvidyao7qgHDHhow33LpJ0JaYy5J5Y='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-change-me-12345'
+      AIRFLOW_CONN_MINIO: 'http://minio:9000'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"  # ДОБАВЛЕНО - порт для доступа к UI
+    command: webserver  # ИСПРАВЛЕНО - была команда инициализации
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"] 
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - airflow-internal
+      - storage-network
+      - dwh-network
+
+  airflow-scheduler:  # ИСПРАВЛЕНО
+    image: airflow-custom:2.11.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__FERNET_KEY: 'cTFE9LhK6yX5Qnvidyao7qgHDHhow33LpJ0JaYy5J5Y='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-change-me-12345'
+      AIRFLOW_CONN_MINIO: 'http://minio:9000'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler  # ИСПРАВЛЕНО - была команда инициализации
+    healthcheck:
+      test: ["CMD", "bash", "-c", "airflow jobs check --job-type SchedulerJob --hostname $$(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - airflow-internal
+      - storage-network
+      - dwh-network
+
+  airflow-worker-1:
+    image: airflow-custom:2.11.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'cTFE9LhK6yX5Qnvidyao7qgHDHhow33LpJ0JaYy5J5Y='
+      AIRFLOW_CONN_MINIO: 'http://minio:9000'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+      - ./plugins:/opt/airflow/plugins
+    command: celery worker
+    healthcheck:
+      test: ["CMD", "celery", "-A", "airflow.executors.celery_executor", "inspect", "ping", "-d", "celery@$$(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    networks:
+      - airflow-internal
+      - storage-network
+      - dwh-network
+
+  postgres_dwh:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    networks:
+      - dwh-network
+    volumes:
+      - dwh-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    restart: always
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    restart: always
+    volumes:
+       - /run/desktop/mnt/host/d/minio-data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    networks:
+      - storage-network
+    ports:
+      - "9000:9000"
+      - "9001:9001" 
+  
+networks:
+  airflow-internal:
+    driver: bridge
+  
+  storage-network:
+    driver: bridge
+
+  dwh-network:
+    driver: bridge
+
+volumes:
+  postgres-db-volume:
+  minio-data:
+  dwh-data:
